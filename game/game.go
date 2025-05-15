@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"meermookh/config"
 	"meermookh/modules/aabb"
 	"meermookh/modules/player"
@@ -20,7 +19,7 @@ type Game struct {
 func New() Game {
 	tiles := make([]tile.Tile, 0)
 	pixelsFilled := 0
-	for pixelsFilled <= config.WINDOW_W {
+	for pixelsFilled <= config.WINDOW_W/2 {
 		x := float32(pixelsFilled)
 		y := float32(config.WINDOW_H - config.BASE_TILE_SIZE)
 
@@ -28,8 +27,6 @@ func New() Game {
 		pixelsFilled += config.BASE_TILE_SIZE
 		tiles = append(tiles, tile)
 	}
-
-	fmt.Printf("Generated %d tiles.\n", len(tiles))
 
 	return Game{
 		tiles:  tiles,
@@ -46,6 +43,8 @@ func (g *Game) Update() {
 	info := aabb.Check(&plRect, g.tiles)
 	if info.IsCollided {
 		g.Player.HandleCollision(info)
+	} else {
+		g.Player.ResetCollision()
 	}
 
 	g.Player.Update()

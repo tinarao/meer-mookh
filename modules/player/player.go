@@ -1,6 +1,7 @@
 package player
 
 import (
+	"fmt"
 	"meermookh/config"
 	"meermookh/modules/aabb"
 
@@ -10,13 +11,19 @@ import (
 type Player struct {
 	rect       rl.Rectangle
 	speed      uint
+	jumpHeight float32
+
+	canJump    bool
 	isStanding bool
+	isJumping  bool
 }
 
 func New() Player {
 	return Player{
+		jumpHeight: 150,
 		speed:      5,
 		isStanding: false,
+		isJumping:  false,
 		rect: rl.Rectangle{
 			X:      100,
 			Y:      100,
@@ -51,10 +58,39 @@ func (p *Player) Update() {
 	if rl.IsKeyDown(rl.KeyD) {
 		p.rect.X += float32(p.speed)
 	}
+
+	if rl.IsKeyDown(rl.KeySpace) && !p.isJumping && p.canJump {
+		go p.jump()
+	}
 }
 
 func (p *Player) HandleCollision(info aabb.CollisionInfo) {
 	if info.IsCollided {
 		p.isStanding = info.IsStanding
+		if info.IsStanding {
+			p.canJump = true
+			p.isJumping = false
+		}
+	}
+}
+
+func (p *Player) ResetCollision() {
+	p.isStanding = false
+	p.canJump = false
+}
+
+func (p *Player) jump() {
+	p.isJumping = true
+	p.canJump = false
+
+	var jumpedAt float32 = 0.0
+	var jumpAmpl float32 = 0.005
+	for jumpedAt <= p.jumpHeight {
+		p.rect.Y -= float32(jumpAmpl)
+		jumpedAt += jumpAmpl
+
+		// idk, when i delete this print,
+		// it jumps not like it should
+		fmt.Printf("jumpedAt: %f\n", jumpedAt)
 	}
 }
