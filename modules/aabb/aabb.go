@@ -3,11 +3,17 @@ package aabb
 import (
 	"fmt"
 	"meermookh/config"
-	"meermookh/modules/player"
 	"meermookh/modules/tile"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
+
+type CollisionInfo struct {
+	IsCollided bool
+	IsStanding bool
+	Tile       *tile.Tile
+	Side       string // "top", "bottom", "left", "right"
+}
 
 func SimpleAABB(r1, r2 *rl.Rectangle) bool {
 	if r1 == nil || r2 == nil {
@@ -20,20 +26,66 @@ func SimpleAABB(r1, r2 *rl.Rectangle) bool {
 		r1.Y+r1.Height > r2.Y)
 }
 
-func Check(pl *player.Player, tiles []tile.Tile) {
-	filtered := split(pl, tiles)
-	fmt.Printf("%d tiles to check\n", len(filtered))
+func Check(plRect *rl.Rectangle, tiles []tile.Tile) CollisionInfo {
+	filtered := split(plRect, tiles)
 
 	if len(filtered) == 0 {
-		return
+		return CollisionInfo{IsCollided: false}
 	}
+
+	for _, t := range filtered {
+		tRect := t.GetRect()
+		if rl.CheckCollisionRecs(*plRect, *tRect) {
+			plBottom := plRect.Y + plRect.Height
+			tTop := tRect.Y
+			plRight := plRect.X + plRect.Width
+			tLeft := tRect.X
+			plLeft := plRect.X
+			tRight := tRect.X + tRect.Width
+			plTop := plRect.Y
+			tBottom := tRect.Y + tRect.Height
+
+			// isstanding
+			if plBottom <= tTop+5 && plBottom >= tTop-5 {
+				return CollisionInfo{
+					IsCollided: true,
+					IsStanding: true,
+					Tile:       &t,
+					Side:       "top",
+				}
+			}
+
+			var side string
+			if plBottom > tTop && plTop < tBottom {
+				if plRight-tLeft < tRight-plLeft {
+					side = "left"
+				} else {
+					side = "right"
+				}
+			} else {
+				if plBottom-tTop < tBottom-plTop {
+					side = "top"
+				} else {
+					side = "bottom"
+				}
+			}
+
+			return CollisionInfo{
+				IsCollided: true,
+				IsStanding: false,
+				Tile:       &t,
+				Side:       side,
+			}
+		}
+	}
+
+	return CollisionInfo{IsCollided: false}
 }
 
 // 1. Split window in 4 parts
 // 2. Find out in which part player is
 // 3. Check collision only with rects in such area
-func split(pl *player.Player, tiles []tile.Tile) (filtered []tile.Tile) {
-	plRect := pl.GetRect()
+func split(plRect *rl.Rectangle, tiles []tile.Tile) (filtered []tile.Tile) {
 	wCenter := config.WINDOW_W / 2
 	hCenter := config.WINDOW_H / 2
 
@@ -57,6 +109,15 @@ func split(pl *player.Player, tiles []tile.Tile) (filtered []tile.Tile) {
 		searchArea.Width = float32(config.WINDOW_W - wCenter)
 	}
 
+	// Debug
+	color := rl.Color{
+		R: 0,
+		G: 255,
+		B: 0,
+		A: 80,
+	}
+	rl.DrawRectanglePro(*searchArea, rl.Vector2{X: 0, Y: 0}, 0, color)
+
 	// Now, when i have the search area
 	// i can filter tiles and get such tiles
 	// that locates in this area
@@ -69,6 +130,9 @@ func split(pl *player.Player, tiles []tile.Tile) (filtered []tile.Tile) {
 			filtered = append(filtered, t)
 		}
 	}
+
+	str := fmt.Sprintf("Tiles to check: %d\n", len(filtered))
+	rl.DrawText(str, 50, 50, 16, rl.Black)
 
 	return filtered
 }

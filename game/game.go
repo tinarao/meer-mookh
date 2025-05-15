@@ -24,8 +24,6 @@ func New() Game {
 		x := float32(pixelsFilled)
 		y := float32(config.WINDOW_H - config.BASE_TILE_SIZE)
 
-		fmt.Printf("x: %f\ty: %f\n", x, y)
-
 		tile := tile.New(rl.Vector2{X: x, Y: y})
 		pixelsFilled += config.BASE_TILE_SIZE
 		tiles = append(tiles, tile)
@@ -44,7 +42,11 @@ func (g *Game) Title(title string) {
 }
 
 func (g *Game) Update() {
-	aabb.Check(&g.Player, g.tiles)
+	plRect := g.Player.GetRect()
+	info := aabb.Check(&plRect, g.tiles)
+	if info.IsCollided {
+		g.Player.HandleCollision(info)
+	}
 
 	g.Player.Update()
 }

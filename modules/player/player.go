@@ -2,18 +2,21 @@ package player
 
 import (
 	"meermookh/config"
+	"meermookh/modules/aabb"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 type Player struct {
-	rect  rl.Rectangle
-	speed uint
+	rect       rl.Rectangle
+	speed      uint
+	isStanding bool
 }
 
 func New() Player {
 	return Player{
-		speed: 5,
+		speed:      5,
+		isStanding: false,
 		rect: rl.Rectangle{
 			X:      100,
 			Y:      100,
@@ -37,11 +40,21 @@ func (p *Player) Draw() {
 }
 
 func (p *Player) Update() {
+	if !p.isStanding {
+		p.rect.Y += float32(p.speed)
+	}
+
 	if rl.IsKeyDown(rl.KeyA) {
 		p.rect.X -= float32(p.speed)
 	}
 
 	if rl.IsKeyDown(rl.KeyD) {
 		p.rect.X += float32(p.speed)
+	}
+}
+
+func (p *Player) HandleCollision(info aabb.CollisionInfo) {
+	if info.IsCollided {
+		p.isStanding = info.IsStanding
 	}
 }
