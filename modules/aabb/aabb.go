@@ -1,7 +1,6 @@
 package aabb
 
 import (
-	"fmt"
 	"meermookh/config"
 	"meermookh/modules/tile"
 
@@ -26,7 +25,7 @@ func SimpleAABB(r1, r2 *rl.Rectangle) bool {
 		r1.Y+r1.Height > r2.Y)
 }
 
-func Check(plRect *rl.Rectangle, tiles []tile.Tile) CollisionInfo {
+func Check(plRect *rl.Rectangle, tiles *[]tile.Tile) CollisionInfo {
 	filtered := split(plRect, tiles)
 
 	if len(filtered) == 0 {
@@ -85,7 +84,7 @@ func Check(plRect *rl.Rectangle, tiles []tile.Tile) CollisionInfo {
 // 1. Split window in 4 parts
 // 2. Find out in which part player is
 // 3. Check collision only with rects in such area
-func split(plRect *rl.Rectangle, tiles []tile.Tile) (filtered []tile.Tile) {
+func split(plRect *rl.Rectangle, tiles *[]tile.Tile) (filtered []tile.Tile) {
 	wCenter := config.WINDOW_W / 2
 	hCenter := config.WINDOW_H / 2
 
@@ -109,30 +108,18 @@ func split(plRect *rl.Rectangle, tiles []tile.Tile) (filtered []tile.Tile) {
 		searchArea.Width = float32(config.WINDOW_W - wCenter)
 	}
 
-	// Debug
-	color := rl.Color{
-		R: 0,
-		G: 255,
-		B: 0,
-		A: 80,
-	}
-	rl.DrawRectanglePro(*searchArea, rl.Vector2{X: 0, Y: 0}, 0, color)
-
 	// Now, when i have the search area
 	// i can filter tiles and get such tiles
 	// that locates in this area
 	// then check collisions with those
 	filtered = make([]tile.Tile, 0)
 
-	for _, t := range tiles {
+	for _, t := range *tiles {
 		r := t.GetRect()
 		if SimpleAABB(r, searchArea) {
 			filtered = append(filtered, t)
 		}
 	}
-
-	str := fmt.Sprintf("Tiles to check: %d\n", len(filtered))
-	rl.DrawText(str, 50, 50, 16, rl.Black)
 
 	return filtered
 }
