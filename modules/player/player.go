@@ -52,19 +52,28 @@ func (p *Player) GetRect() rl.Rectangle {
 }
 
 func (p *Player) Draw() {
+
+	hpStr := fmt.Sprintf("HP: %d\n", p.hp)
+	color := rl.Black
+	if p.hp <= 25 {
+		color = rl.Red
+	}
+
+	rl.DrawText(hpStr, 50, 50, 20, color)
+
 	origin := rl.Vector2{
 		X: float32(p.rect.Width) / 2,
 		Y: float32(p.rect.Height) / 2,
 	}
 
-	color := rl.Color{
+	playerColor := rl.Color{
 		R: 128,
 		G: 128,
 		B: 128,
 		A: 255,
 	}
 
-	rl.DrawRectanglePro(p.rect, origin, 0, color)
+	rl.DrawRectanglePro(p.rect, origin, 0, playerColor)
 }
 
 func (p *Player) Update(tiles *[]tile.Tile) {
