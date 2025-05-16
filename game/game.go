@@ -2,10 +2,10 @@ package game
 
 import (
 	"meermookh/config"
-	"meermookh/modules/aabb"
 	"meermookh/modules/enemies"
 	"meermookh/modules/player"
 	"meermookh/modules/tile"
+	"sync"
 
 	"slices"
 
@@ -13,12 +13,16 @@ import (
 )
 
 type Game struct {
-	Player player.Player
+	mu sync.RWMutex
 
+	shouldRun       bool
+	player          player.Player
 	tiles           []tile.Tile
 	title           string
 	enemies         []*enemies.Enemy
 	enemiesToDelete []int
+
+	currentScreen config.ScreenType
 }
 
 func New() Game {
@@ -47,7 +51,7 @@ func New() Game {
 	return Game{
 		enemiesToDelete: make([]int, 0),
 		tiles:           tiles,
-		Player:          player.New(rl.Vector2{X: 100, Y: 700}),
+		player:          player.New(rl.Vector2{X: 100, Y: 700}),
 		enemies:         enemiesSlice,
 	}
 }
@@ -57,24 +61,30 @@ func (g *Game) Title(title string) {
 }
 
 func (g *Game) Update() {
-	// move player collision handling to Player.go
-	plRect := g.Player.GetRect()
-	info := aabb.Check(&plRect, &g.tiles)
-	if info.IsCollided {
-		g.Player.HandleCollision(info)
-	} else {
-		g.Player.ResetCollision()
-	}
-
+	g.mu.Lock()
 	g.ManageEnemies()
+	g.player.Update(&g.tiles)
+	if g.player.GetHP() <= 0 {
+		g.currentScreen = config.DeadScreen
+	}
+	g.mu.Unlock()
 
-	for i := range g.enemies {
-		if g.enemies[i] != nil {
-			go g.enemies[i].Update(&g.tiles)
+	var wg sync.WaitGroup
+	g.mu.RLock()
+	enemiesCopy := make([]*enemies.Enemy, len(g.enemies))
+	copy(enemiesCopy, g.enemies)
+	g.mu.RUnlock()
+
+	for _, enemy := range enemiesCopy {
+		if enemy != nil {
+			wg.Add(1)
+			go func(e *enemies.Enemy) {
+				defer wg.Done()
+				e.Update(&g.tiles)
+			}(enemy)
 		}
 	}
-
-	g.Player.Update()
+	wg.Wait()
 }
 
 func (g *Game) ManageEnemies() {
@@ -97,17 +107,17 @@ func (g *Game) ManageEnemies() {
 }
 
 func (g *Game) Render() {
-	rl.ClearBackground(rl.RayWhite)
-
 	for _, tile := range g.tiles {
 		tile.Draw()
 	}
 
 	for _, enemy := range g.enemies {
-		enemy.Draw()
+		if enemy != nil {
+			enemy.Draw()
+		}
 	}
 
-	g.Player.Draw()
+	g.player.Draw()
 }
 
 func (g *Game) Start() {
@@ -116,16 +126,60 @@ func (g *Game) Start() {
 
 	rl.SetTargetFPS(60)
 
+	g.shouldRun = true
+	g.currentScreen = config.StartScreen
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()
+		rl.ClearBackground(rl.RayWhite)
 
-		g.Update()
-		g.Render()
+		switch g.currentScreen {
+		case config.StartScreen:
+			g.DrawStartScreen()
+			break
+
+		case config.GameScreen:
+			g.DrawGameScreen()
+			break
+
+		case config.DeadScreen:
+			g.DrawDeadScreen()
+			break
+		}
+
+		if !g.shouldRun {
+			break
+		}
 
 		rl.EndDrawing()
 	}
 }
 
 func (g *Game) GetTiles() *[]tile.Tile {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	return &g.tiles
+}
+
+// Screens
+
+func (g *Game) DrawGameScreen() {
+	g.Update()
+	g.Render()
+}
+
+func (g *Game) DrawDeadScreen() {
+	rl.DrawText("TI UMER!!!! DOLBOEB", 600, 400, 32, rl.Black)
+	rl.DrawText("press space to quit", 600, 500, 32, rl.Black)
+
+	if rl.IsKeyPressed(rl.KeySpace) {
+		g.shouldRun = false
+	}
+}
+
+func (g *Game) DrawStartScreen() {
+	rl.DrawText("press space to play", 600, 600, 32, rl.Black)
+
+	if rl.IsKeyPressed(rl.KeySpace) {
+		g.currentScreen = config.GameScreen
+	}
 }

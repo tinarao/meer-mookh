@@ -2,8 +2,11 @@ package player
 
 import (
 	"fmt"
+	"meermookh/config"
 	"meermookh/modules/aabb"
+	"meermookh/modules/tile"
 	"sync"
+	"time"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
@@ -11,6 +14,7 @@ import (
 type Player struct {
 	rect       rl.Rectangle
 	speed      uint
+	hp         int
 	jumpHeight float32
 
 	canJump    bool
@@ -18,26 +22,32 @@ type Player struct {
 	isJumping  bool
 
 	mu sync.RWMutex
+
+	vel                  rl.Vector2
+	isFallingBelowScreen bool
+	fallDamageTicker     *time.Ticker
+	fallDamageDone       chan struct{}
 }
 
 func New(pos rl.Vector2) Player {
 	return Player{
 		jumpHeight: 150,
 		speed:      5,
+		hp:         100,
 		isStanding: false,
 		isJumping:  false,
 		rect: rl.Rectangle{
 			X:      pos.X,
 			Y:      pos.Y,
-			Width:  32,
-			Height: 32,
+			Width:  config.PLAYER_WIDTH,
+			Height: config.PLAYER_HEIGHT,
 		},
+		vel:            rl.Vector2{X: 0, Y: 0},
+		fallDamageDone: make(chan struct{}),
 	}
 }
 
 func (p *Player) GetRect() rl.Rectangle {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
 	return p.rect
 }
 
@@ -57,10 +67,12 @@ func (p *Player) Draw() {
 	rl.DrawRectanglePro(p.rect, origin, 0, color)
 }
 
-func (p *Player) Update() {
-	p.mu.RLock()
+func (p *Player) Update(tiles *[]tile.Tile) {
+	p.mu.Lock()
 	canJumpNow := p.canJump && !p.isJumping
-	p.mu.RUnlock()
+	p.mu.Unlock()
+
+	p.HandleCollision(tiles)
 
 	p.mu.Lock()
 	if !p.isStanding {
@@ -83,27 +95,73 @@ func (p *Player) Update() {
 	if rl.IsKeyDown(rl.KeySpace) && canJumpNow {
 		go p.jump()
 	}
+
+	p.mu.Lock()
+	if p.rect.Y >= config.WINDOW_H {
+		if !p.isFallingBelowScreen {
+			p.isFallingBelowScreen = true
+			p.fallDamageTicker = time.NewTicker(time.Millisecond * 75)
+			go func() {
+				for {
+					select {
+					case <-p.fallDamageTicker.C:
+						p.DealDamage(5)
+						fmt.Printf("Damage. Current hp: %d\n", p.GetHP())
+					case <-p.fallDamageDone:
+						return
+					}
+				}
+			}()
+		}
+	} else {
+		if p.isFallingBelowScreen {
+			p.isFallingBelowScreen = false
+			if p.fallDamageTicker != nil {
+				p.fallDamageTicker.Stop()
+				close(p.fallDamageDone)
+				p.fallDamageDone = make(chan struct{})
+			}
+		}
+	}
+	p.mu.Unlock()
 }
 
-func (p *Player) HandleCollision(info aabb.CollisionInfo) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
+func (p *Player) HandleCollision(tiles *[]tile.Tile) {
+	plRect := p.GetRect()
+	info := aabb.Check(&plRect, tiles)
 	if info.IsCollided {
+		p.mu.Lock()
 		p.isStanding = info.IsStanding
 		if info.IsStanding {
 			p.canJump = true
 			p.isJumping = false
 		}
+		p.mu.Unlock()
+	} else {
+		p.ResetCollision()
 	}
 }
 
 func (p *Player) ResetCollision() {
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	p.isStanding = false
 	p.canJump = false
+	p.mu.Unlock()
+}
+
+func (p *Player) GetHP() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.hp
+}
+
+func (p *Player) DealDamage(amount int) {
+	p.mu.Lock()
+	p.hp -= amount
+	if p.hp < 0 {
+		p.hp = 0
+	}
+	p.mu.Unlock()
 }
 
 func (p *Player) jump() {

@@ -6,6 +6,5 @@ import (
 
 func main() {
 	game := game.New()
-	game.Title("MEER MOOKH")
 	game.Start()
 }

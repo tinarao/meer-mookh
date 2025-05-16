@@ -44,7 +44,6 @@ func Check(plRect *rl.Rectangle, tiles *[]tile.Tile) CollisionInfo {
 			plTop := plRect.Y
 			tBottom := tRect.Y + tRect.Height
 
-			// isstanding
 			if plBottom <= tTop+5 && plBottom >= tTop-5 {
 				return CollisionInfo{
 					IsCollided: true,
