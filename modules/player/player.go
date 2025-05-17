@@ -17,6 +17,7 @@ type Player struct {
 	damage       float32
 	hp           int
 	jumpHeight   float32
+	frags        uint
 	attackRadius int
 
 	canJump    bool
@@ -69,7 +70,9 @@ func (p *Player) Draw() {
 		color = rl.Red
 	}
 
+	fragsStr := fmt.Sprintf("Frags: %d\n", p.GetFrags())
 	rl.DrawText(hpStr, 50, 50, 20, color)
+	rl.DrawText(fragsStr, 50, 75, 20, color)
 
 	origin := rl.Vector2{
 		X: float32(p.rect.Width) / 2,
@@ -174,6 +177,12 @@ func (p *Player) GetHP() int {
 	return p.hp
 }
 
+func (p *Player) GetFrags() uint {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.frags
+}
+
 func (p *Player) DealDamage(amount int) {
 	p.mu.Lock()
 	p.hp -= amount
@@ -187,6 +196,12 @@ func (p *Player) GetDamage() float32 {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.damage
+}
+
+func (p *Player) AddFrags(amount uint) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.frags += amount
 }
 
 func (p *Player) jump() {

@@ -4,6 +4,7 @@ import (
 	"meermookh/config"
 	"meermookh/modules/aabb"
 	"meermookh/modules/enemies"
+	"meermookh/modules/events"
 	"meermookh/modules/player"
 	"meermookh/modules/tile"
 	"sync"
@@ -102,6 +103,7 @@ func (g *Game) ManageEnemies() {
 			}
 
 			if enemy.GetHP() <= 0 {
+				events.PlayerKilledEnemy(g.player)
 				g.enemiesToDelete = append(g.enemiesToDelete, i)
 			}
 		}
