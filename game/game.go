@@ -2,6 +2,7 @@ package game
 
 import (
 	"meermookh/config"
+	"meermookh/modules/aabb"
 	"meermookh/modules/enemies"
 	"meermookh/modules/player"
 	"meermookh/modules/tile"
@@ -16,7 +17,7 @@ type Game struct {
 	mu sync.RWMutex
 
 	shouldRun       bool
-	player          player.Player
+	player          *player.Player
 	tiles           []tile.Tile
 	title           string
 	enemies         []*enemies.Enemy
@@ -48,22 +49,26 @@ func New() Game {
 		enemiesSlice = append(enemiesSlice, &enemy)
 	}
 
+	pl := player.New(rl.Vector2{X: 100, Y: 700}, &enemiesSlice)
+
 	return Game{
 		enemiesToDelete: make([]int, 0),
 		tiles:           tiles,
-		player:          player.New(rl.Vector2{X: 100, Y: 700}),
+		player:          &pl,
 		enemies:         enemiesSlice,
 	}
-}
-
-func (g *Game) Title(title string) {
-	g.title = title
 }
 
 func (g *Game) Update() {
 	g.mu.Lock()
 	g.ManageEnemies()
-	g.player.Update(&g.tiles)
+
+	drawables := make([]aabb.Drawable, len(g.tiles))
+	for i := range g.tiles {
+		drawables[i] = &g.tiles[i]
+	}
+
+	g.player.Update(&drawables)
 	if g.player.GetHP() <= 0 {
 		g.currentScreen = config.DeadScreen
 	}
@@ -80,7 +85,7 @@ func (g *Game) Update() {
 			wg.Add(1)
 			go func(e *enemies.Enemy) {
 				defer wg.Done()
-				e.Update(&g.tiles)
+				e.Update(&drawables)
 			}(enemy)
 		}
 	}
@@ -90,8 +95,13 @@ func (g *Game) Update() {
 func (g *Game) ManageEnemies() {
 	for i, enemy := range g.enemies {
 		if enemy != nil {
+			// all checks for enemies
 			rect := enemy.GetRect()
 			if rect.X >= config.WINDOW_W || rect.Y >= config.WINDOW_H {
+				g.enemiesToDelete = append(g.enemiesToDelete, i)
+			}
+
+			if enemy.GetHP() <= 0 {
 				g.enemiesToDelete = append(g.enemiesToDelete, i)
 			}
 		}
@@ -121,7 +131,7 @@ func (g *Game) Render() {
 }
 
 func (g *Game) Start() {
-	rl.InitWindow(config.WINDOW_W, config.WINDOW_H, g.title)
+	rl.InitWindow(config.WINDOW_W, config.WINDOW_H, "meer mookh")
 	defer rl.CloseWindow()
 
 	rl.SetTargetFPS(60)
@@ -135,15 +145,12 @@ func (g *Game) Start() {
 		switch g.currentScreen {
 		case config.StartScreen:
 			g.DrawStartScreen()
-			break
 
 		case config.GameScreen:
 			g.DrawGameScreen()
-			break
 
 		case config.DeadScreen:
 			g.DrawDeadScreen()
-			break
 		}
 
 		if !g.shouldRun {
@@ -159,8 +166,6 @@ func (g *Game) GetTiles() *[]tile.Tile {
 	defer g.mu.RUnlock()
 	return &g.tiles
 }
-
-// Screens
 
 func (g *Game) DrawGameScreen() {
 	g.Update()

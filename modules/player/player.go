@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"meermookh/config"
 	"meermookh/modules/aabb"
-	"meermookh/modules/tile"
+	"meermookh/modules/enemies"
 	"sync"
 	"time"
 
@@ -12,10 +12,12 @@ import (
 )
 
 type Player struct {
-	rect       rl.Rectangle
-	speed      uint
-	hp         int
-	jumpHeight float32
+	rect         rl.Rectangle
+	speed        uint
+	damage       float32
+	hp           int
+	jumpHeight   float32
+	attackRadius int
 
 	canJump    bool
 	isStanding bool
@@ -27,15 +29,24 @@ type Player struct {
 	isFallingBelowScreen bool
 	fallDamageTicker     *time.Ticker
 	fallDamageDone       chan struct{}
+
+	isAttacking       bool
+	attackCircleTimer *time.Timer
+
+	// kolhozny DI
+	enemies *[]*enemies.Enemy
 }
 
-func New(pos rl.Vector2) Player {
+func New(pos rl.Vector2, enemies *[]*enemies.Enemy) Player {
 	return Player{
-		jumpHeight: 150,
-		speed:      5,
-		hp:         100,
-		isStanding: false,
-		isJumping:  false,
+		jumpHeight:   150,
+		speed:        5,
+		attackRadius: 64,
+		enemies:      enemies,
+		damage:       35,
+		hp:           100,
+		isStanding:   false,
+		isJumping:    false,
 		rect: rl.Rectangle{
 			X:      pos.X,
 			Y:      pos.Y,
@@ -52,7 +63,6 @@ func (p *Player) GetRect() rl.Rectangle {
 }
 
 func (p *Player) Draw() {
-
 	hpStr := fmt.Sprintf("HP: %d\n", p.hp)
 	color := rl.Black
 	if p.hp <= 25 {
@@ -76,7 +86,7 @@ func (p *Player) Draw() {
 	rl.DrawRectanglePro(p.rect, origin, 0, playerColor)
 }
 
-func (p *Player) Update(tiles *[]tile.Tile) {
+func (p *Player) Update(tiles *[]aabb.Drawable) {
 	p.mu.Lock()
 	canJumpNow := p.canJump && !p.isJumping
 	p.mu.Unlock()
@@ -135,7 +145,7 @@ func (p *Player) Update(tiles *[]tile.Tile) {
 	p.mu.Unlock()
 }
 
-func (p *Player) HandleCollision(tiles *[]tile.Tile) {
+func (p *Player) HandleCollision(tiles *[]aabb.Drawable) {
 	plRect := p.GetRect()
 	info := aabb.Check(&plRect, tiles)
 	if info.IsCollided {
@@ -173,6 +183,12 @@ func (p *Player) DealDamage(amount int) {
 	p.mu.Unlock()
 }
 
+func (p *Player) GetDamage() float32 {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.damage
+}
+
 func (p *Player) jump() {
 	p.mu.Lock()
 	p.isJumping = true
@@ -202,7 +218,44 @@ func (p *Player) jump() {
 
 func (p *Player) attack() {
 	p.mu.Lock()
-	defer p.mu.Unlock()
+	if p.isAttacking {
+		p.mu.Unlock()
+		return
+	}
 
-	// todo: attack
+	p.attackCircleTimer = time.NewTimer(300 * time.Millisecond)
+	p.isAttacking = true
+	p.mu.Unlock()
+
+	v := rl.Vector2{
+		X: p.GetRect().X,
+		Y: p.GetRect().Y,
+	}
+
+	if p.enemies == nil {
+		return
+	}
+
+	for _, enemy := range *p.enemies {
+		if enemy == nil {
+			continue
+		}
+
+		enemyRect := enemy.GetRect()
+		c := rl.CheckCollisionCircleRec(v, float32(p.GetAttackRadius()), enemyRect)
+		if c {
+			enemy.ApplyDamage(p.GetDamage())
+		}
+	}
+
+	go func() {
+		<-p.attackCircleTimer.C
+		p.mu.Lock()
+		p.isAttacking = false
+		p.mu.Unlock()
+	}()
+}
+
+func (p *Player) GetAttackRadius() int {
+	return p.attackRadius
 }

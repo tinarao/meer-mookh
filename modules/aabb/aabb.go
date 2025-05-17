@@ -2,7 +2,6 @@ package aabb
 
 import (
 	"meermookh/config"
-	"meermookh/modules/tile"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
@@ -10,8 +9,13 @@ import (
 type CollisionInfo struct {
 	IsCollided bool
 	IsStanding bool
-	Tile       *tile.Tile
+	Entity     Drawable
 	Side       string // "top", "bottom", "left", "right"
+}
+
+type Drawable interface {
+	Draw()
+	GetRect() *rl.Rectangle
 }
 
 func SimpleAABB(r1, r2 *rl.Rectangle) bool {
@@ -25,7 +29,7 @@ func SimpleAABB(r1, r2 *rl.Rectangle) bool {
 		r1.Y+r1.Height > r2.Y)
 }
 
-func Check(plRect *rl.Rectangle, tiles *[]tile.Tile) CollisionInfo {
+func Check(plRect *rl.Rectangle, tiles *[]Drawable) CollisionInfo {
 	filtered := split(plRect, tiles)
 
 	if len(filtered) == 0 {
@@ -48,7 +52,7 @@ func Check(plRect *rl.Rectangle, tiles *[]tile.Tile) CollisionInfo {
 				return CollisionInfo{
 					IsCollided: true,
 					IsStanding: true,
-					Tile:       &t,
+					Entity:     t,
 					Side:       "top",
 				}
 			}
@@ -71,7 +75,7 @@ func Check(plRect *rl.Rectangle, tiles *[]tile.Tile) CollisionInfo {
 			return CollisionInfo{
 				IsCollided: true,
 				IsStanding: false,
-				Tile:       &t,
+				Entity:     t,
 				Side:       side,
 			}
 		}
@@ -83,7 +87,7 @@ func Check(plRect *rl.Rectangle, tiles *[]tile.Tile) CollisionInfo {
 // 1. Split window in 4 parts
 // 2. Find out in which part player is
 // 3. Check collision only with rects in such area
-func split(plRect *rl.Rectangle, tiles *[]tile.Tile) (filtered []tile.Tile) {
+func split(plRect *rl.Rectangle, tiles *[]Drawable) (filtered []Drawable) {
 	wCenter := config.WINDOW_W / 2
 	hCenter := config.WINDOW_H / 2
 
@@ -107,12 +111,7 @@ func split(plRect *rl.Rectangle, tiles *[]tile.Tile) (filtered []tile.Tile) {
 		searchArea.Width = float32(config.WINDOW_W - wCenter)
 	}
 
-	// Now, when i have the search area
-	// i can filter tiles and get such tiles
-	// that locates in this area
-	// then check collisions with those
-	filtered = make([]tile.Tile, 0)
-
+	filtered = make([]Drawable, 0)
 	for _, t := range *tiles {
 		r := t.GetRect()
 		if SimpleAABB(r, searchArea) {
