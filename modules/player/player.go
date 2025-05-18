@@ -63,6 +63,10 @@ func (p *Player) GetRect() rl.Rectangle {
 	return p.rect
 }
 
+func (p *Player) GetRectPtr() *rl.Rectangle {
+	return &p.rect
+}
+
 func (p *Player) Draw() {
 	hpStr := fmt.Sprintf("HP: %d\n", p.hp)
 	color := rl.Black
@@ -185,11 +189,11 @@ func (p *Player) GetFrags() uint {
 
 func (p *Player) DealDamage(amount int) {
 	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.hp -= amount
 	if p.hp < 0 {
 		p.hp = 0
 	}
-	p.mu.Unlock()
 }
 
 func (p *Player) GetDamage() float32 {

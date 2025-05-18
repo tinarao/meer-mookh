@@ -40,7 +40,7 @@ func New() Game {
 		tiles = append(tiles, tile)
 	}
 
-	for i := range 10 {
+	for i := range 1 {
 		pos := rl.Vector2{
 			X: float32(250 + i*100),
 			Y: 500,
@@ -51,6 +51,11 @@ func New() Game {
 	}
 
 	pl := player.New(rl.Vector2{X: 100, Y: 700}, &enemiesSlice)
+
+	for _, e := range enemiesSlice {
+		e.AttachPlayerRectPtr(pl.GetRectPtr())
+		e.SetPlayer(&pl)
+	}
 
 	return Game{
 		enemiesToDelete: make([]int, 0),
