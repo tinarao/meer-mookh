@@ -1,12 +1,16 @@
 package game
 
 import (
+	"fmt"
 	"meermookh/config"
 	"meermookh/modules/aabb"
 	"meermookh/modules/enemies"
 	"meermookh/modules/events"
 	"meermookh/modules/player"
 	"meermookh/modules/tile"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"slices"
@@ -23,6 +27,8 @@ type Game struct {
 	title           string
 	enemies         []*enemies.Enemy
 	enemiesToDelete []int
+
+	loadedTextures map[string]*rl.Texture2D
 
 	currentScreen config.ScreenType
 }
@@ -62,6 +68,7 @@ func New() Game {
 		tiles:           tiles,
 		player:          &pl,
 		enemies:         enemiesSlice,
+		loadedTextures:  make(map[string]*rl.Texture2D),
 	}
 }
 
@@ -124,6 +131,8 @@ func (g *Game) ManageEnemies() {
 }
 
 func (g *Game) Render() {
+	g.DrawBackground()
+
 	for _, tile := range g.tiles {
 		tile.Draw()
 	}
@@ -140,6 +149,9 @@ func (g *Game) Render() {
 func (g *Game) Start() {
 	rl.InitWindow(config.WINDOW_W, config.WINDOW_H, "meer mookh")
 	defer rl.CloseWindow()
+
+	g.loadTextures()
+	defer g.unloadTextures()
 
 	rl.SetTargetFPS(60)
 
@@ -174,6 +186,18 @@ func (g *Game) GetTiles() *[]tile.Tile {
 	return &g.tiles
 }
 
+func (g *Game) DrawBackground() {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	tex := g.loadedTextures["game-bg-sky"]
+	if tex == nil {
+		panic("\"game-bg-sky\" texture is not present in loaded textures")
+	}
+
+	rl.DrawTextureEx(*tex, rl.Vector2Zero(), 0, 1, rl.Gray)
+}
+
 func (g *Game) DrawGameScreen() {
 	g.Update()
 	g.Render()
@@ -193,5 +217,52 @@ func (g *Game) DrawStartScreen() {
 
 	if rl.IsKeyPressed(rl.KeySpace) {
 		g.currentScreen = config.GameScreen
+	}
+}
+
+func (g *Game) loadTextures() {
+	path := filepath.Join(".", "assets")
+	dir, err := os.Open(path)
+	if err != nil {
+		e := fmt.Sprintf("failed to os.Open: %s", err.Error())
+		panic(e)
+	}
+
+	files, err := dir.ReadDir(-1)
+	if err != nil {
+		e := fmt.Sprintf("failed to dir.ReadDir: %s", err.Error())
+		panic(e)
+	}
+
+	allowedFormats := []string{
+		"png",
+		"jpg",
+	}
+
+	for _, file := range files {
+		splitted := strings.Split(file.Name(), ".")
+		if len(splitted) != 2 {
+			e := fmt.Sprintf("Invalid file found at /assets/%s\n", file.Name())
+			panic(e)
+		}
+
+		if !slices.Contains(allowedFormats, splitted[1]) {
+			e := fmt.Sprintf("Invalid file found at /assets/%s\n", file.Name())
+			panic(e)
+		}
+
+		filename := splitted[0]
+		fullpath := filepath.Join("assets", file.Name())
+		tex := rl.LoadTexture(fullpath)
+		g.loadedTextures[filename] = &tex
+	}
+
+	fmt.Printf("Loaded %d textures.\n", len(g.loadedTextures))
+
+}
+
+func (g *Game) unloadTextures() {
+	for _, t := range g.loadedTextures {
+		rl.UnloadTexture(*t)
 	}
 }
