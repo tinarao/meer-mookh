@@ -2,9 +2,11 @@ package mapparser
 
 import (
 	"encoding/xml"
+	"fmt"
 	"meermookh/modules/tile"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
@@ -85,13 +87,20 @@ func (m *Tilemap) generateTiles() {
 	for _, layer := range m.Layers {
 		for y := range 30 {
 			for x := range 60 {
-				if layer[y][x] == DEFAULT_FLOOR_TILE_TYPE {
+				tileID := layer[y][x]
+				if tileID != "0" {
 					pos := rl.Vector2{
 						X: float32(x * 32),
 						Y: float32(y * 32),
 					}
 
-					tile := tile.New(pos)
+					idx, err := strconv.Atoi(tileID)
+					if err != nil {
+						fmt.Printf("Failed to convert tile ID %s to int: %v\n", tileID, err)
+						continue
+					}
+
+					tile := tile.New(pos, idx)
 					m.Tiles = append(m.Tiles, &tile)
 				}
 			}

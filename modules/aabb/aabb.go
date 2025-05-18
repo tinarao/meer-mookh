@@ -14,7 +14,7 @@ type CollisionInfo struct {
 }
 
 type Drawable interface {
-	Draw()
+	Draw(tex *rl.Texture2D)
 	GetRect() *rl.Rectangle
 }
 

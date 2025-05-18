@@ -6,6 +6,8 @@ const (
 	BASE_TILE_SIZE = 32
 	PLAYER_WIDTH   = 32
 	PLAYER_HEIGHT  = 32
+
+	TILESET_WIDTH = 11 // 32x32 rects in row
 )
 
 type ScreenType string

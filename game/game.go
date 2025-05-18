@@ -124,10 +124,16 @@ func (g *Game) ManageEnemies() {
 }
 
 func (g *Game) Render() {
-	g.DrawBackground()
+	// g.DrawBackground()
+
+	tilesetTex := g.loadedTextures["tileset"]
+	if tilesetTex == nil {
+		panic("tileset texture is not loaded")
+	}
 
 	for _, tile := range g.tilemap.Tiles {
-		tile.Draw()
+		fmt.Println("tile.Draw called in main")
+		tile.Draw(tilesetTex)
 	}
 
 	for _, enemy := range g.enemies {
@@ -248,10 +254,10 @@ func (g *Game) loadTextures() {
 		fullpath := filepath.Join("assets", file.Name())
 		tex := rl.LoadTexture(fullpath)
 		g.loadedTextures[filename] = &tex
+		fmt.Printf("Loaded texture: %s (size: %dx%d)\n", filename, tex.Width, tex.Height)
 	}
 
 	fmt.Printf("Loaded %d textures.\n", len(g.loadedTextures))
-
 }
 
 func (g *Game) unloadTextures() {
