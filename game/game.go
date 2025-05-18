@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"meermookh/config"
+	"meermookh/internal/mapparser"
 	"meermookh/modules/aabb"
 	"meermookh/modules/enemies"
 	"meermookh/modules/events"
@@ -23,28 +24,18 @@ type Game struct {
 
 	shouldRun       bool
 	player          *player.Player
-	tiles           []tile.Tile
 	title           string
 	enemies         []*enemies.Enemy
 	enemiesToDelete []int
 
+	tilemap        *mapparser.Tilemap
 	loadedTextures map[string]*rl.Texture2D
 
 	currentScreen config.ScreenType
 }
 
 func New() Game {
-	tiles := make([]tile.Tile, 0)
 	enemiesSlice := make([]*enemies.Enemy, 0)
-	pixelsFilled := 0
-	for pixelsFilled <= config.WINDOW_W/2 {
-		x := float32(pixelsFilled)
-		y := float32(config.WINDOW_H - config.BASE_TILE_SIZE)
-
-		tile := tile.New(rl.Vector2{X: x, Y: y})
-		pixelsFilled += config.BASE_TILE_SIZE
-		tiles = append(tiles, tile)
-	}
 
 	for i := range 1 {
 		pos := rl.Vector2{
@@ -56,6 +47,8 @@ func New() Game {
 		enemiesSlice = append(enemiesSlice, &enemy)
 	}
 
+	tilemap := mapparser.LoadMap("main_map.tmx")
+
 	pl := player.New(rl.Vector2{X: 100, Y: 700}, &enemiesSlice)
 
 	for _, e := range enemiesSlice {
@@ -65,7 +58,7 @@ func New() Game {
 
 	return Game{
 		enemiesToDelete: make([]int, 0),
-		tiles:           tiles,
+		tilemap:         tilemap,
 		player:          &pl,
 		enemies:         enemiesSlice,
 		loadedTextures:  make(map[string]*rl.Texture2D),
@@ -76,9 +69,9 @@ func (g *Game) Update() {
 	g.mu.Lock()
 	g.ManageEnemies()
 
-	drawables := make([]aabb.Drawable, len(g.tiles))
-	for i := range g.tiles {
-		drawables[i] = &g.tiles[i]
+	drawables := make([]aabb.Drawable, len(g.tilemap.Tiles))
+	for i := range g.tilemap.Tiles {
+		drawables[i] = g.tilemap.Tiles[i]
 	}
 
 	g.player.Update(&drawables)
@@ -133,7 +126,7 @@ func (g *Game) ManageEnemies() {
 func (g *Game) Render() {
 	g.DrawBackground()
 
-	for _, tile := range g.tiles {
+	for _, tile := range g.tilemap.Tiles {
 		tile.Draw()
 	}
 
@@ -180,10 +173,10 @@ func (g *Game) Start() {
 	}
 }
 
-func (g *Game) GetTiles() *[]tile.Tile {
+func (g *Game) GetTiles() *[]*tile.Tile {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return &g.tiles
+	return &g.tilemap.Tiles
 }
 
 func (g *Game) DrawBackground() {
@@ -195,7 +188,7 @@ func (g *Game) DrawBackground() {
 		panic("\"game-bg-sky\" texture is not present in loaded textures")
 	}
 
-	rl.DrawTextureEx(*tex, rl.Vector2Zero(), 0, 1, rl.Gray)
+	rl.DrawTextureEx(*tex, rl.Vector2Zero(), 0, 0.90, rl.Gray)
 }
 
 func (g *Game) DrawGameScreen() {

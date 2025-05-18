@@ -7,24 +7,27 @@ import (
 )
 
 type Tile struct {
-	rect rl.Rectangle
+	rect *rl.Rectangle
 }
 
 func New(pos rl.Vector2) Tile {
+	rect := rl.Rectangle{
+		X:      pos.X,
+		Y:      pos.Y,
+		Width:  config.BASE_TILE_SIZE,
+		Height: config.BASE_TILE_SIZE,
+	}
 	return Tile{
-		rect: rl.Rectangle{
-			X:      pos.X,
-			Y:      pos.Y,
-			Width:  config.BASE_TILE_SIZE,
-			Height: config.BASE_TILE_SIZE,
-		},
+		rect: &rect,
 	}
 }
 
 func (t *Tile) Draw() {
-	rl.DrawRectangleRec(t.rect, rl.Green)
+	if t.rect != nil {
+		rl.DrawRectangleRec(*t.rect, rl.Green)
+	}
 }
 
 func (t *Tile) GetRect() *rl.Rectangle {
-	return &t.rect
+	return t.rect
 }

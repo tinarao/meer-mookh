@@ -170,7 +170,6 @@ func (e *Enemy) PatrolState() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	// dont wanna deal with this particular state rn
 }
 
 func (e *Enemy) AttackState() {
